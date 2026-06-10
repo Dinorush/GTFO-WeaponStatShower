@@ -2,12 +2,17 @@
 using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
+using WeaponStatShower.Dependencies;
+using WeaponStatShower.ExtraDescription;
 using WeaponStatShower.Patches;
+using WeaponStatShower.Utils.Language;
 
 namespace WeaponStatShower
 {
-    [BepInPlugin(GUID, ModName, "1.5.2")]
+    [BepInPlugin(GUID, ModName, "2.0.0")]
     [BepInProcess("GTFO.exe")]
+    [BepInDependency(MTFOWrapper.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(PartialData.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     public class WeaponStatShowerPlugin : BasePlugin
     {
         internal const string ModName = "Weapon Stat Shower";
@@ -21,6 +26,10 @@ namespace WeaponStatShower
         private static readonly Dictionary<Type, Patches.Patch> RegisteredPatches = new();
 
         public static WeaponStatShowerPlugin Instance { get; private set; }
+        internal static bool ShowStats => _showStats.Value == ShowStatSetting.Force ||
+            (_showStats.Value == ShowStatSetting.True && !DescriptionDataManager.Current.GlobalSettings.PreferHideStats);
+        internal static string SleepersShown => _sleepersShown.Value.Trim().ToUpper();
+        internal static LanguageEnum ConfigLanguage => _configLanguage.Value;
 
         public WeaponStatShowerPlugin()
         {
@@ -32,7 +41,10 @@ namespace WeaponStatShower
             Instance = this;
             Config.SaveOnConfigSet = true;
             LogInfo("STARTED");
-            RegisterPatch<ShowStat>();
+            DescriptionDataManager.Current.Init();
+            RegisterPatch<DescriptionToggle>();
+            BuildConfig(Config);
+            LogInfo($"Loaded config: {_showStats.Value}, {DescriptionDataManager.Current.GlobalSettings.PreferHideStats}, {ShowStats}");
             Config.Save();
         }
 
@@ -69,5 +81,25 @@ namespace WeaponStatShower
         public static void LogMessage(object data) => Instance.Log.LogMessage(data);
 
         public static void LogWarning(object data) => Instance.Log.LogWarning(data);
+
+        private static ConfigEntry<LanguageEnum> _configLanguage = null!;
+        private static ConfigEntry<string> _sleepersShown = null!;
+        private static ConfigEntry<ShowStatSetting> _showStats = null!;
+
+        private static void BuildConfig(ConfigFile file)
+        {
+            string section = "ShowStat";
+            _configLanguage = file.Bind(section, "Language", LanguageEnum.English, "Select the mod language.");
+            _sleepersShown = file.Bind(section, "SleepersShown", "NONE", "Select which Sleepers are shown, seperated by a comma.\n" +
+                "Acceptable values: ALL, NONE, STRIKER, SHOOTER, SCOUT, BIG_STRIKER, BIG_SHOOTER, CHARGER, CHARGER_SCOUT");
+            _showStats = file.Bind(section, "ShowStats", ShowStatSetting.True, "Add a description tab with auto-generated weapon stats.\nForce will always create a tab, even if the rundown developer disables it.");
+        }
+
+        enum ShowStatSetting
+        {
+            False,
+            True,
+            Force
+        }
     }
 }

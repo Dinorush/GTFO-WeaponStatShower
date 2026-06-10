@@ -9,7 +9,6 @@ namespace WeaponStatShower.Utils
 {
     internal class WeaponDescriptionBuilder
     {
-        private SleepersDatas _sleepersDatas;
         private PlayerDataBlock _playerDB;
         private GearIDRange _idRange;
         private uint _categoryID;
@@ -17,62 +16,67 @@ namespace WeaponStatShower.Utils
         private ItemDataBlock _itemDB;
         private LanguageDatas _languageDatas;
         private LanguageEnum _language;
-        private LanguageEnum? _cachedLanguage;
-        private LanguageDatas? _cachedLanguageDatas;
-        private bool _showStats;
-        private bool _showDescription;
+        private SleepersDatas _sleepersDatas;
+        private string _lastSleepersDatas;
         private readonly StringBuilder _strBuilder = new();
 
         private const string DIVIDER = " | ";
         private const string CLOSE_COLOR_TAG = "</color>";
+        private const string SHOTGUN_PREFAB = "Assets/AssetPrefabs/Items/Weapons/GearSetup/ShotgunWeaponFirstPerson.prefab";
 
-        internal void Inizialize(GearIDRange idRange, PlayerDataBlock playerDB, LanguageEnum language, bool showStats, bool showDescription) // Inizialize
+        internal void Inizialize(GearIDRange idRange, PlayerDataBlock playerDB, LanguageEnum language) // Inizialize
         {
             _idRange = idRange;
             _playerDB = playerDB;
-            _language = language;
             _categoryID = idRange.GetCompID(eGearComponent.Category);
             _gearCategoryDB = GameDataBlockBase<GearCategoryDataBlock>.GetBlock(_categoryID);
             _itemDB = ItemDataBlock.GetBlock(_gearCategoryDB.BaseItem);
-            _languageDatas = DeserializeLanguageJson(language);
-            _showStats = showStats;
-            _showDescription = showDescription;
+            bool changedLanguage = DeserializeLanguageJson(language);
+            SetSleepersDatas(changedLanguage);
         }
 
-        public void UpdateSleepersDatas(string[] activatedSleepers, LanguageEnum language)
+        private bool DeserializeLanguageJson(LanguageEnum language)
         {
+            if (_language == language && _languageDatas != null) return false;
+
+            var languageStrings = JsonSerializer.Deserialize<LanguageDatasClass>(LocalizedString.JsonString)!;
+            _languageDatas = language.Equals(LanguageEnum.English) ? languageStrings.english : languageStrings.chinese;
+            _language = language;
+            return true;
+        }
+
+        private void SetSleepersDatas(bool force)
+        {
+            if (_lastSleepersDatas == WeaponStatShowerPlugin.SleepersShown && !force) return;
+            _lastSleepersDatas = WeaponStatShowerPlugin.SleepersShown;
+
+            var activatedSleepers = _lastSleepersDatas.Split(',');
             if (activatedSleepers[0].Trim().Length == 0)
             {
                 WeaponStatShowerPlugin.LogWarning("Empty String in the config file, applying Default values");
                 activatedSleepers = new string[] { "ALL" };
             }
-            _sleepersDatas = new SleepersDatas(activatedSleepers, DeserializeLanguageJson(language).sleepers);
+            _sleepersDatas = new SleepersDatas(activatedSleepers, _languageDatas.sleepers);
         }
 
-        private LanguageDatas DeserializeLanguageJson(LanguageEnum language)
-        {
-            if (_cachedLanguage == language && _cachedLanguageDatas != null)
-                return _cachedLanguageDatas;
-            var languageStrings = JsonSerializer.Deserialize<LanguageDatasClass>(LocalizedString.JsonString)!;
-            _cachedLanguageDatas = language.Equals(LanguageEnum.English) ? languageStrings.english : languageStrings.chinese;
-            _cachedLanguage = language;
-            return _cachedLanguageDatas;
-        }
-
-        public string DescriptionFormatter(string gearDescription)
+        public string DescriptionFormatter()
         {
             if (_itemDB.inventorySlot == InventorySlot.GearMelee)
             {
                 var meleeArchetypeDB = MeleeArchetypeDataBlock.GetBlock(GearBuilder.GetMeleeArchetypeID(_gearCategoryDB));
-                gearDescription = VerboseDescriptionFormatter(meleeArchetypeDB);
-                return gearDescription + GetFormatedWeaponStats(meleeArchetypeDB, _itemDB);
+                return VerboseDescriptionFormatter(meleeArchetypeDB) + GetFormatedWeaponStats(meleeArchetypeDB, _itemDB);
             }
 
             var (archetypeDB, isSentry) = GetRangedArchetype();
-            if (archetypeDB == null) return _showStats || _showDescription ? string.Empty : gearDescription; // non-weapon tools: BIO_TRACKER, MINE_DEPLOYER, etc.
+            if (archetypeDB == null) return string.Empty;
 
-            gearDescription = VerboseDescriptionFormatter(archetypeDB, isSentry);
-            return gearDescription + GetFormatedWeaponStats(archetypeDB, isSentry);
+            bool isShotgun;
+            if (isSentry)
+                isShotgun = (eWeaponFireMode)_idRange.GetCompID(eGearComponent.FireMode) == eWeaponFireMode.SentryGunShotgunSemi;
+            else
+                isShotgun = _itemDB.FirstPersonPrefabs != null && _itemDB.FirstPersonPrefabs.Contains(SHOTGUN_PREFAB);
+
+            return VerboseDescriptionFormatter(archetypeDB, isSentry) + GetFormatedWeaponStats(archetypeDB, isShotgun, isSentry);
         }
 
         internal string FireRateFormatter(string gearPublicName)
@@ -151,38 +155,7 @@ namespace WeaponStatShower.Utils
 
         private string VerboseDescriptionFormatter(ArchetypeDataBlock archetypeDB, bool isSentry)
         {
-            var spread = _languageDatas.spread;
             _strBuilder.Clear();
-
-            //if (isSentry && !_showDescription)
-            //    _strBuilder.AppendLine(_languageDatas.deployable);
-
-            switch (archetypeDB.ShotgunBulletSpread + archetypeDB.ShotgunConeSize)
-            {
-                case 0:
-                    break;
-
-                case 1:
-                    _strBuilder.AppendLine(spread.chocked);
-                    break;
-
-                case 4:
-                    _strBuilder.AppendLine(spread.small);
-                    break;
-
-                case 5:
-                case 7:
-                    _strBuilder.AppendLine(spread.medium);
-                    break;
-
-                case 9:
-                    _strBuilder.AppendLine(spread.huge);
-                    break;
-
-                default:
-                    WeaponStatShowerPlugin.LogError(archetypeDB.PublicName + ": spread not considered{" + archetypeDB.ShotgunBulletSpread + "/" + archetypeDB.ShotgunConeSize + "}");
-                    break;
-            }
 
             float chargeupTime = archetypeDB.SpecialChargetupTime;
             if (chargeupTime > 0)
@@ -215,9 +188,10 @@ namespace WeaponStatShower.Utils
             return _strBuilder.Length == 0 ? string.Empty : _strBuilder.ToString();
         }
 
-        private string GetFormatedWeaponStats(ArchetypeDataBlock archetypeDB, bool isSentry = false)
+        private string GetFormatedWeaponStats(ArchetypeDataBlock archetypeDB, bool isShotgun, bool isSentry = false)
         {
             if (archetypeDB == null) return string.Empty;
+
             int count = 0;
             int dividerThreshold = _language != LanguageEnum.English ? 3 : 4;
             _strBuilder.Clear();
@@ -235,23 +209,21 @@ namespace WeaponStatShower.Utils
                 }
             }
 
-            if (_showStats)
-            {
-                string damageValue = FormatFloat(archetypeDB.Damage, 2) + (archetypeDB.ShotgunBulletCount > 0 ? $"(x{archetypeDB.ShotgunBulletCount})" : "");
-                AppendStat(ref count, "<#9D2929>", _languageDatas.damage, damageValue);
-                AppendStatIf(ref count, Divider, !isSentry, "<color=orange>", _languageDatas.clip, archetypeDB.DefaultClipSize.ToString());
-                Divider();
-                AppendStat(ref count, "<#FFD306>", _languageDatas.maxAmmo, GetTotalAmmo(archetypeDB, _itemDB, isSentry).ToString());
-                AppendStatIf(ref count, Divider, !isSentry, "<#C0FF00>", _languageDatas.reload, FormatFloat(archetypeDB.DefaultReloadTime, 2).ToString());
-                AppendStatIf(ref count, Divider, archetypeDB.PrecisionDamageMulti != 1f, "<#18A4A9>", _languageDatas.precision, FormatFloat(archetypeDB.PrecisionDamageMulti, 2).ToString());
-                Divider();
-                AppendStat(ref count, "<#6764de>", _languageDatas.falloff, ((int)archetypeDB.DamageFalloff.x).ToString() + "m");
-                AppendStatIf(ref count, Divider, archetypeDB.StaggerDamageMulti != 1f, "<color=green>", _languageDatas.stagger, FormatFloat(archetypeDB.StaggerDamageMulti, 2).ToString());
-                AppendStatIf(ref count, Divider, archetypeDB.HipFireSpread != 0f && archetypeDB.ShotgunBulletCount == 0, "<#cc9347>", _languageDatas.hipSpread, FormatFloat(archetypeDB.HipFireSpread, 2).ToString());
-                AppendStatIf(ref count, Divider, archetypeDB.AimSpread != 0f && archetypeDB.ShotgunBulletCount == 0, "<#e6583c>", _languageDatas.aimDSpread, FormatFloat(archetypeDB.AimSpread, 2).ToString());
-                AppendStatIf(ref count, Divider, archetypeDB.PiercingBullets, "<#097345>", _languageDatas.pierceCount, archetypeDB.PiercingDamageCountLimit.ToString());
-                _strBuilder.AppendLine();
-            }
+            string damageValue = FormatFloat(archetypeDB.Damage, 2) + (isShotgun ? $"(x{archetypeDB.ShotgunBulletCount})" : "");
+            AppendStat(ref count, "<#9D2929>", _languageDatas.damage, damageValue);
+            AppendStatIf(ref count, Divider, !isSentry, "<color=orange>", _languageDatas.clip, archetypeDB.DefaultClipSize.ToString());
+            Divider();
+            AppendStat(ref count, "<#FFD306>", _languageDatas.maxAmmo, GetTotalAmmo(archetypeDB, _itemDB, isSentry).ToString());
+            AppendStatIf(ref count, Divider, !isSentry, "<#C0FF00>", _languageDatas.reload, FormatFloat(archetypeDB.DefaultReloadTime, 2).ToString());
+            AppendStatIf(ref count, Divider, archetypeDB.PrecisionDamageMulti != 1f, "<#18A4A9>", _languageDatas.precision, FormatFloat(archetypeDB.PrecisionDamageMulti, 2).ToString());
+            Divider();
+            AppendStat(ref count, "<#6764de>", _languageDatas.falloff, ((int)archetypeDB.DamageFalloff.x).ToString() + "m");
+            AppendStatIf(ref count, Divider, archetypeDB.StaggerDamageMulti != 1f, "<color=green>", _languageDatas.stagger, FormatFloat(archetypeDB.StaggerDamageMulti, 2).ToString());
+            AppendStatIf(ref count, Divider, archetypeDB.HipFireSpread != 0f && !isShotgun, "<#cc9347>", _languageDatas.hipSpread, FormatFloat(archetypeDB.HipFireSpread, 2).ToString());
+            AppendStatIf(ref count, Divider, archetypeDB.AimSpread != 0f && !isShotgun, "<#e6583c>", _languageDatas.aimDSpread, FormatFloat(archetypeDB.AimSpread, 2).ToString());
+            AppendStatIf(ref count, Divider, archetypeDB.ShotgunBulletSpread + archetypeDB.ShotgunConeSize != 0f && isShotgun, "<#e6583c>", _languageDatas.spread, FormatFloat(archetypeDB.ShotgunBulletSpread + archetypeDB.ShotgunConeSize, 2).ToString());
+            AppendStatIf(ref count, Divider, archetypeDB.PiercingBullets, "<#097345>", _languageDatas.pierceCount, archetypeDB.PiercingDamageCountLimit.ToString());
+            _strBuilder.AppendLine();
             
             _strBuilder.Append(_sleepersDatas.VerboseKill(archetypeDB));
             return _strBuilder.ToString();
@@ -277,23 +249,22 @@ namespace WeaponStatShower.Utils
                 }
             }
 
-            if (_showStats)
-            {
-                _strBuilder.AppendLine();
-                AppendStat(ref count, "<#9D2929>", $"{_languageDatas.damage}.{meleeLanguage.light}", meleeArchetypeDB.LightAttackDamage.ToString());
-                Divider();
-                AppendStat(ref count, "<color=orange>", $"{_languageDatas.damage}.{meleeLanguage.heavy}", meleeArchetypeDB.ChargedAttackDamage.ToString());
-                AppendStatIf(ref count, Divider, !meleeArchetypeDB.AllowRunningWhenCharging, "<#FFD306>", meleeLanguage.canRunWhileCharging);
-                AppendStatIf(ref count, Divider, meleeArchetypeDB.LightStaggerMulti != 1f, "<#C0FF00>", $"{_languageDatas.stagger}.{meleeLanguage.light}", meleeArchetypeDB.LightStaggerMulti.ToString());
-                AppendStatIf(ref count, Divider, meleeArchetypeDB.ChargedStaggerMulti != 1f, "<color=green>", $"{_languageDatas.stagger}.{meleeLanguage.heavy}", meleeArchetypeDB.ChargedStaggerMulti.ToString());
-                AppendStatIf(ref count, Divider, meleeArchetypeDB.LightPrecisionMulti != 1f, "<#004E2C>", $"{_languageDatas.precision}.{meleeLanguage.light}", meleeArchetypeDB.LightPrecisionMulti.ToString());
-                AppendStatIf(ref count, Divider, meleeArchetypeDB.ChargedPrecisionMulti != 1f, "<#55022B>", $"{_languageDatas.precision}.{meleeLanguage.heavy}", meleeArchetypeDB.ChargedPrecisionMulti.ToString());
-                AppendStatIf(ref count, Divider, meleeArchetypeDB.LightSleeperMulti != 1f, "<#A918A7>", $"{meleeLanguage.sleepingEnemiesMultiplier}.{meleeLanguage.light}", meleeArchetypeDB.LightSleeperMulti.ToString());
-                AppendStatIf(ref count, Divider, meleeArchetypeDB.ChargedSleeperMulti != 1f, "<#025531>", $"{meleeLanguage.sleepingEnemiesMultiplier}.{meleeLanguage.heavy}", meleeArchetypeDB.ChargedSleeperMulti.ToString());
-                AppendStatIf(ref count, Divider, meleeArchetypeDB.LightEnvironmentMulti != 1f, "<#18A4A9>", $"{meleeLanguage.environmentMultiplier}.{meleeLanguage.light}", meleeArchetypeDB.LightEnvironmentMulti.ToString());
-                AppendStatIf(ref count, Divider, meleeArchetypeDB.ChargedEnvironmentMulti != 1f, "<#75A2AA>", $"{meleeLanguage.environmentMultiplier}.{meleeLanguage.heavy}", meleeArchetypeDB.ChargedEnvironmentMulti.ToString());
-                _strBuilder.AppendLine();
-            }
+            _strBuilder.AppendLine();
+            AppendStat(ref count, "<#9D2929>", $"{_languageDatas.damage}.{meleeLanguage.light}", meleeArchetypeDB.LightAttackDamage.ToString());
+            Divider();
+            AppendStat(ref count, "<color=orange>", $"{_languageDatas.damage}.{meleeLanguage.heavy}", meleeArchetypeDB.ChargedAttackDamage.ToString());
+            AppendStatIf(ref count, Divider, !meleeArchetypeDB.AllowRunningWhenCharging, "<#FFD306>", meleeLanguage.canRunWhileCharging);
+            AppendStatIf(ref count, Divider, meleeArchetypeDB.LightStaggerMulti != 1f, "<#C0FF00>", $"{_languageDatas.stagger}.{meleeLanguage.light}", meleeArchetypeDB.LightStaggerMulti.ToString());
+            AppendStatIf(ref count, Divider, meleeArchetypeDB.ChargedStaggerMulti != 1f, "<color=green>", $"{_languageDatas.stagger}.{meleeLanguage.heavy}", meleeArchetypeDB.ChargedStaggerMulti.ToString());
+            AppendStatIf(ref count, Divider, meleeArchetypeDB.LightPrecisionMulti != 1f, "<#004E2C>", $"{_languageDatas.precision}.{meleeLanguage.light}", meleeArchetypeDB.LightPrecisionMulti.ToString());
+            AppendStatIf(ref count, Divider, meleeArchetypeDB.ChargedPrecisionMulti != 1f, "<#55022B>", $"{_languageDatas.precision}.{meleeLanguage.heavy}", meleeArchetypeDB.ChargedPrecisionMulti.ToString());
+            AppendStatIf(ref count, Divider, meleeArchetypeDB.LightSleeperMulti != 1f, "<#A918A7>", $"{meleeLanguage.sleepingEnemiesMultiplier}.{meleeLanguage.light}", meleeArchetypeDB.LightSleeperMulti.ToString());
+            AppendStatIf(ref count, Divider, meleeArchetypeDB.ChargedSleeperMulti != 1f, "<#025531>", $"{meleeLanguage.sleepingEnemiesMultiplier}.{meleeLanguage.heavy}", meleeArchetypeDB.ChargedSleeperMulti.ToString());
+            AppendStatIf(ref count, Divider, meleeArchetypeDB.LightBackstabberMulti != 1f, "<#18A4A9>", $"{meleeLanguage.backstabMultiplier}.{meleeLanguage.light}", meleeArchetypeDB.LightBackstabberMulti.ToString());
+            AppendStatIf(ref count, Divider, meleeArchetypeDB.ChargedBackstabberMulti != 1f, "<#75A2AA>", $"{meleeLanguage.backstabMultiplier}.{meleeLanguage.heavy}", meleeArchetypeDB.ChargedBackstabberMulti.ToString());
+            AppendStatIf(ref count, Divider, meleeArchetypeDB.LightEnvironmentMulti != 1f, "<#18A4A9>", $"{meleeLanguage.environmentMultiplier}.{meleeLanguage.light}", meleeArchetypeDB.LightEnvironmentMulti.ToString());
+            AppendStatIf(ref count, Divider, meleeArchetypeDB.ChargedEnvironmentMulti != 1f, "<#75A2AA>", $"{meleeLanguage.environmentMultiplier}.{meleeLanguage.heavy}", meleeArchetypeDB.ChargedEnvironmentMulti.ToString());
+            _strBuilder.AppendLine();
             
             _strBuilder.Append(_sleepersDatas.VerboseKill(meleeArchetypeDB) ?? string.Empty);
             return _strBuilder.ToString();
