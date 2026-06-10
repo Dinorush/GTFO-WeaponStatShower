@@ -6,7 +6,13 @@ namespace WeaponStatShower.ExtraDescription.Data
     {
         public static readonly ExtraDescriptionData[] Template = new ExtraDescriptionData[]
         {
+            new(),
             new()
+            {
+                Headers = new LocaleText[] {LocaleText.Empty, new("Third Tab")},
+                Descriptions = new LocaleText[] {new("Custom tab for testing"), new("Another custom tab under the third tab")},
+                Name = "Filled Example"
+            }
         };
 
         public uint ArchetypeID { get; set; } = 0;
