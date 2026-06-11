@@ -24,7 +24,6 @@ namespace WeaponStatShower.ExtraDescription
             LiveEdit.TryReadFileContent(e.FullPath, (content) =>
             {
                 ReadGlobalContent(content);
-                OnReload();
             });
         }
 
@@ -40,7 +39,6 @@ namespace WeaponStatShower.ExtraDescription
             LiveEdit.TryReadFileContent(e.FullPath, (content) =>
             {
                 ReadDataContent(e.FullPath, content);
-                OnReload();
             });
         }
 
@@ -56,8 +54,6 @@ namespace WeaponStatShower.ExtraDescription
                 if (data.GearCategoryID != 0)
                     _gearIdDataMap.Remove(data.GearCategoryID);
             }
-
-            OnReload();
         }
 
         private void DataFileCreated(LiveEditEventArgs e)
@@ -66,7 +62,6 @@ namespace WeaponStatShower.ExtraDescription
             LiveEdit.TryReadFileContent(e.FullPath, (content) =>
             {
                 ReadDataContent(e.FullPath, content);
-                OnReload();
             });
         }
 
@@ -145,17 +140,7 @@ namespace WeaponStatShower.ExtraDescription
             listener.FileDeleted += DataFileDeleted;
         }
 
-        private void OnReload()
-        {
-
-        }
-
-        internal void Init()
-        {
-            if (!MTFOWrapper.HasMTFO) return;
-
-            MTFOWrapper.AddOnHotReload(OnReload);
-        }
+        internal void Init() { }
 
         public static bool TryGetArchData(uint archetypeID, [MaybeNullWhen(false)] out ExtraDescriptionData data)
         {

@@ -10,9 +10,8 @@ namespace WeaponStatShower.ExtraDescription
 {
     public class DescriptionButtonHandler
     {
-        private static readonly Vector2 OldSize = new(290f, 55f);
-        private static readonly Vector2 NewSize = new(510f, 210f);
-        private static readonly Vector2 HalfSizeMod = new((NewSize.x - OldSize.x) / 2f, (NewSize.y - OldSize.y) / 2f);
+        private static readonly Vector2 Size = new (530f, 210f);
+        private const float ThickBarBuffer = 7;
         private static readonly WeaponDescriptionBuilder DescriptionBuilder = new();
 
         private readonly GameObject _gameObject;
@@ -38,6 +37,7 @@ namespace WeaponStatShower.ExtraDescription
             _item = _gameObject.GetComponent<CM_Item>();
             _item.m_texts[0].SetText(string.Empty);
             _item.m_clickBlink = false;
+
             var rectTrans = _item.transform.GetChild(0);
             _rectTrans = rectTrans.GetComponent<RectTransform>();
             _renderers = new SpriteRenderer[]
@@ -48,27 +48,29 @@ namespace WeaponStatShower.ExtraDescription
                 rectTrans.GetChild(3).GetComponent<SpriteRenderer>(), // Right
             };
 
+            _item.OnBtnPressCallback = null;
+            _item.add_OnBtnPressCallback((Action<int>)OnBtnPress);
+
+            // Button formatting
             var baseColor = new Color(1f, 1f, 1f, 0.2f);
-            _item.transform.localPosition = new(-190f - HalfSizeMod.x, -100f - HalfSizeMod.y, -1);
-            _item.m_collider.size = NewSize;
             foreach (var renderer in _renderers)
                 renderer.color = baseColor;
+            // Collider is centered at the transform, so need to shift all bars up-left by half the size
+            _item.transform.localPosition = new(-295 - ThickBarBuffer, -75 - Size.y / 2, -1);
+            _item.m_collider.size = Size;
 
-            _renderers[0].transform.localPosition += new Vector3(-HalfSizeMod.x + 7, HalfSizeMod.y, 0f);
-            _renderers[0].size = new(NewSize.x - 8, 1);
-            _renderers[1].transform.localPosition += new Vector3(-HalfSizeMod.x, HalfSizeMod.y, 0f);
-            _renderers[1].size = new(8, NewSize.y);
-            _renderers[2].transform.localPosition += new Vector3(-HalfSizeMod.x + 7, -HalfSizeMod.y, 0f);
-            _renderers[2].size = new(NewSize.x - 8, 1);
-            _renderers[3].transform.localPosition += new Vector3(HalfSizeMod.x, HalfSizeMod.y, 0f);
-            _renderers[3].size = new(1, NewSize.y);
+            _renderers[0].transform.localPosition = new Vector3(ThickBarBuffer - Size.x / 2, Size.y / 2, 0);
+            _renderers[0].size = new(Size.x, 1);
+            _renderers[1].transform.localPosition = new Vector3(-Size.x / 2, Size.y / 2, 0);
+            _renderers[1].size = new(ThickBarBuffer + 1, Size.y);
+            _renderers[2].transform.localPosition = new Vector3(ThickBarBuffer - Size.x / 2, -Size.y / 2, 0);
+            _renderers[2].size = new(Size.x, 1);
+            _renderers[3].transform.localPosition = new Vector3(ThickBarBuffer + Size.x / 2, Size.y / 2, 0);
+            _renderers[3].size = new(1, Size.y);
 
             _item.m_spriteColorOut = baseColor;
             _item.m_alphaSpriteOnHover = true;
             _item.m_hoverSpriteArray = _renderers;
-
-            _item.OnBtnPressCallback = null;
-            _item.add_OnBtnPressCallback((Action<int>)OnBtnPress);
         }
 
         public void SetData(GearIDRange idRange)
@@ -84,6 +86,8 @@ namespace WeaponStatShower.ExtraDescription
             bool hasCustom;
             ExtraDescriptionData? customData;
             LocaleText description;
+            // Only some items have arch blocks (gun, sentry). Not checking gear cat for arch weapons
+            // since any sane person will only use arch for them.
             if (archBlock != null)
             {
                 description = new(archBlock.Description);
@@ -122,12 +126,14 @@ namespace WeaponStatShower.ExtraDescription
                 descBuilder.Add(desc);
             }
 
+            // Description index could exceed available count in some cases; default to first tab if so.
             descBuilder.Insert(descriptionIndex <= descBuilder.Count ? descriptionIndex : 0, new(description));
             headerBuilder.Insert(descriptionIndex <= descBuilder.Count ? descriptionIndex : 0, LocaleText.Empty);
 
             _descriptions = descBuilder.ToArray();
             _headers = headerBuilder.ToArray();
 
+            // Fill blank headers elements with the normal gear name
             LocaleText defaultHeader = new(idRange.PublicGearName);
             for (int i = 0; i < _headers.Length; i++)
                 if (_headers[i] == LocaleText.Empty)
@@ -144,6 +150,7 @@ namespace WeaponStatShower.ExtraDescription
 
         private void OnBtnPress(int _)
         {
+            // I have no idea what CursorPosition is relative to, so I just use World here.
             var screenPoint = RectTransformUtility.WorldToScreenPoint(CM_Camera.Current.Camera, _pageLoadout.CursorWorldPosition);
             RectTransformUtility.ScreenPointToLocalPointInRectangle(_rectTrans, screenPoint, CM_Camera.Current.Camera, out var localPoint);
 
