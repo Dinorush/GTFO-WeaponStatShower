@@ -15,6 +15,7 @@
 					""heavy"": ""Hvy"",
 					""canRunWhileCharging"": ""Can't run"",
 					""sleepingEnemiesMultiplier"": ""Slp"",
+					""backstabMultiplier"": ""Bak"",
 					""environmentMultiplier"": ""Env"",
 					""canPierce"": ""Piercing"",
 					""shortRange"": ""Short Range"",
@@ -24,13 +25,6 @@
 					""knife"": ""Knife - Fast"",
 					""bat"": ""Bat - Fast"",
 					""spear"": ""Spear - Slow""
-				},
-				""spread"": {
-					""chocked"": ""Chocked Spread"",
-					""small"": ""Small Spread"",
-					""medium"": ""Medium Spread"",
-					""large"": ""Large Spread"",
-					""huge"": ""Huge Spread""
 				},
 				""sleepers"": {
 					""striker"": ""STRK"",
@@ -56,6 +50,7 @@
 				""rateOfFire"": ""RoF"",
 				""aimDSpread"": ""ADS"",
 				""hipSpread"": ""HIP"",
+				""spread"": ""SPRD"",
 				""deployable"": ""Deployable"",
 				""longChargeUp"": ""Long Charge-up"",
 				""shortChargeUp"": ""short Charge-up""
@@ -73,6 +68,7 @@
 					""heavy"": ""重击"",
 					""canRunWhileCharging"": ""不能冲刺"",
 					""sleepingEnemiesMultiplier"": ""沉睡倍率"",
+					""backstabMultiplier"": ""背后捅刀"",
 					""environmentMultiplier"": ""环境倍率"",
 					""canPierce"": ""穿刺"",
 					""shortRange"": ""短距离"",
@@ -82,13 +78,6 @@
 					""knife"": ""刀 - 快速"",
 					""bat"": ""棍棒 - 快速"",
 					""spear"": ""矛 - 慢速""
-				},
-				""spread"": {
-					""chocked"": ""收束扩散"",
-					""small"": ""扩散小"",
-					""medium"": ""中度扩散"",
-					""large"": ""扩散大"",
-					""huge"": ""超大扩散""
 				},
 				""sleepers"": {
 					""striker"": ""前锋"",
@@ -115,6 +104,7 @@
 				""rateOfFire"": ""射速"",
 				""aimDSpread"": ""倍镜"",
 				""hipSpread"": ""后坐力"",
+				""spread"": ""点差"",
 				""deployable"": ""可部署"",
 				""longChargeUp"": ""长蓄力"",
 				""shortChargeUp"": ""短蓄力""

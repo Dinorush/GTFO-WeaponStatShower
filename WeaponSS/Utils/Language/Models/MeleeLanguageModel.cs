@@ -6,6 +6,7 @@
         public string heavy { get; set; } = string.Empty;
         public string canRunWhileCharging { get; set; } = string.Empty;
         public string sleepingEnemiesMultiplier { get; set; } = string.Empty;
+        public string backstabMultiplier { get; set; } = string.Empty;
         public string environmentMultiplier { get; set; } = string.Empty;
         public string canPierce { get; set; } = string.Empty;
         public string shortRange { get; set; } = string.Empty;

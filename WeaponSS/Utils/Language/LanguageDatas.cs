@@ -6,7 +6,6 @@ namespace WeaponStatShower.Utils.Language
     {
         public FiremodeLanguageModel firemode { get; set; } = new();
         public MeleeLanguageModel melee { get; set; } = new();
-        public SpreadLanguageModel spread { get; set; } = new();
         public SleepersLanguageModel sleepers { get; set; } = new();
         public string damage { get; set; } = string.Empty;
         public string clip { get; set; } = string.Empty;
@@ -19,6 +18,7 @@ namespace WeaponStatShower.Utils.Language
         public string rateOfFire { get; set; } = string.Empty;
         public string aimDSpread { get; set; } = string.Empty;
         public string hipSpread { get; set; } = string.Empty;
+        public string spread { get; set; } = string.Empty;
         public string deployable { get; set; } = string.Empty;
         public string longChargeUp { get; set; } = string.Empty;
         public string shortChargeUp { get; set; } = string.Empty;
