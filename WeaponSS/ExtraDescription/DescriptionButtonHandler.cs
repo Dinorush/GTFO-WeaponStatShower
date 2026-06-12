@@ -1,6 +1,7 @@
 ﻿using CellMenu;
 using GameData;
 using Gear;
+using TMPro;
 using UnityEngine;
 using WeaponStatShower.ExtraDescription.Data;
 using WeaponStatShower.Utils;
@@ -10,14 +11,13 @@ namespace WeaponStatShower.ExtraDescription
 {
     public class DescriptionButtonHandler
     {
-        private static readonly Vector2 Size = new (530f, 210f);
-        private const float ThickBarBuffer = 7;
+        private static readonly Vector2 Size = new (600, 320);
         private static readonly WeaponDescriptionBuilder DescriptionBuilder = new();
 
         private readonly GameObject _gameObject;
         private readonly CM_Item _item;
+        private readonly TextMeshPro _text;
         private readonly RectTransform _rectTrans;
-        private readonly SpriteRenderer[] _renderers;
         private readonly CM_ScrollWindowInfoBox _infoBox;
         private readonly CM_PageLoadout _pageLoadout;
 
@@ -35,42 +35,42 @@ namespace WeaponStatShower.ExtraDescription
             // Need to instantiate a new button every time since the window is instantiated every time
             _gameObject = GameObject.Instantiate(CM_PageLoadout.Current.m_copyLobbyIdButton.gameObject, _infoBox.transform);
             _item = _gameObject.GetComponent<CM_Item>();
-            _item.m_texts[0].SetText(string.Empty);
             _item.m_clickBlink = false;
 
-            var rectTrans = _item.transform.GetChild(0);
-            _rectTrans = rectTrans.GetComponent<RectTransform>();
-            _renderers = new SpriteRenderer[]
-            {
-                rectTrans.GetChild(0).GetComponent<SpriteRenderer>(), // Top
-                rectTrans.GetChild(1).GetComponent<SpriteRenderer>(), // Left
-                rectTrans.GetChild(2).GetComponent<SpriteRenderer>(), // Bottom
-                rectTrans.GetChild(3).GetComponent<SpriteRenderer>(), // Right
-            };
+            var box = _item.transform.GetChild(0);
+            _rectTrans = box.GetComponent<RectTransform>();
+            box.gameObject.SetActive(false);
 
             _item.OnBtnPressCallback = null;
             _item.add_OnBtnPressCallback((Action<int>)OnBtnPress);
 
-            // Button formatting
+            // Copy text into child object so we can offset it from the center
+            GameObject child = new("PageNumber");
+            child.transform.SetParent(_gameObject.transform, false);
+            child.transform.localPosition = new Vector3(0, -110, 0);
+            child.layer = LayerManager.LAYER_UI;
+
             var baseColor = new Color(1f, 1f, 1f, 0.2f);
-            foreach (var renderer in _renderers)
-                renderer.color = baseColor;
-            // Collider is centered at the transform, so need to shift all bars up-left by half the size
-            _item.transform.localPosition = new(-295 - ThickBarBuffer, -75 - Size.y / 2, -1);
+            var text = _item.m_texts[0];
+            _text = child.AddComponent<TextMeshPro>();
+            _text.font = text.font;
+            _text.fontSize = 48;
+            _text.color = baseColor;
+            _text.alignment = TextAlignmentOptions.Bottom;
+            _text.raycastTarget = text.raycastTarget;
+            _text.sortingLayerID = text.sortingLayerID;
+            _text.enableWordWrapping = false;
+            _text.isOrthographic = true;
+            _text.rectTransform.sizeDelta = new Vector2(100, 50);
+            _item.m_texts[0] = _text;
+            GameObject.Destroy(text);
+
+            _item.transform.localPosition = new(-300, -50 - Size.y / 2, -1);
             _item.m_collider.size = Size;
 
-            _renderers[0].transform.localPosition = new Vector3(ThickBarBuffer - Size.x / 2, Size.y / 2, 0);
-            _renderers[0].size = new(Size.x, 1);
-            _renderers[1].transform.localPosition = new Vector3(-Size.x / 2, Size.y / 2, 0);
-            _renderers[1].size = new(ThickBarBuffer + 1, Size.y);
-            _renderers[2].transform.localPosition = new Vector3(ThickBarBuffer - Size.x / 2, -Size.y / 2, 0);
-            _renderers[2].size = new(Size.x, 1);
-            _renderers[3].transform.localPosition = new Vector3(ThickBarBuffer + Size.x / 2, Size.y / 2, 0);
-            _renderers[3].size = new(1, Size.y);
-
-            _item.m_spriteColorOut = baseColor;
+            _item.m_textColorOut[0] = baseColor;
+            _item.m_textColorOver[0] = Color.white;
             _item.m_alphaSpriteOnHover = true;
-            _item.m_hoverSpriteArray = _renderers;
         }
 
         public void SetData(GearIDRange idRange)
@@ -122,8 +122,19 @@ namespace WeaponStatShower.ExtraDescription
             if (showStats)
             {
                 (var header, var desc) = CreateGeneratedStats(idRange);
-                headerBuilder.Add(header);
-                descBuilder.Add(desc);
+                if (WeaponStatShowerPlugin.StatsFirst)
+                {
+                    headerBuilder.Insert(0, header);
+                    descBuilder.Insert(0, desc);
+                    // Shift description index up if it wasn't placed after stats page
+                    if (descriptionIndex < descBuilder.Count)
+                        descriptionIndex++;
+                }
+                else
+                {
+                    headerBuilder.Add(header);
+                    descBuilder.Add(desc);
+                }
             }
 
             // Description index could exceed available count in some cases; default to first tab if so.
@@ -146,6 +157,7 @@ namespace WeaponStatShower.ExtraDescription
                 _infoBox.m_infoMainTitleText.SetText(_headers[0]);
                 _infoBox.m_infoDescriptionText.SetText(_descriptions[0]);
             }
+            _text.SetText($"<< 1 >>");
         }
 
         private void OnBtnPress(int _)
@@ -163,6 +175,7 @@ namespace WeaponStatShower.ExtraDescription
 
             _infoBox.m_infoMainTitleText.SetText(_headers[_index]);
             _infoBox.m_infoDescriptionText.SetText(_descriptions[_index]);
+            _text.SetText($"<< {_index + 1} >>");
         }
 
         private static (LocaleText header, LocaleText desc) CreateGeneratedStats(GearIDRange idRange)
