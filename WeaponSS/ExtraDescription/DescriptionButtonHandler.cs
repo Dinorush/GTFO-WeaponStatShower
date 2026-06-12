@@ -119,44 +119,60 @@ namespace WeaponStatShower.ExtraDescription
                 headerBuilder.ExpandToSize(descBuilder.Count, LocaleText.Empty);
             }
 
+            var defaultHeader = LocaleText.Empty;
+            var defaultDesc = new LocaleText(description);
             if (showStats)
             {
                 (var header, var desc) = CreateGeneratedStats(idRange);
-                if (WeaponStatShowerPlugin.StatsFirst)
+                switch (WeaponStatShowerPlugin.StatsLocation)
                 {
-                    headerBuilder.Insert(0, header);
-                    descBuilder.Insert(0, desc);
-                    // Shift description index up if it wasn't placed after stats page
-                    if (descriptionIndex < descBuilder.Count)
-                        descriptionIndex++;
-                }
-                else
-                {
-                    headerBuilder.Add(header);
-                    descBuilder.Add(desc);
+                    case WeaponStatShowerPlugin.StatsPosition.Last:
+                        headerBuilder.Add(header);
+                        descBuilder.Add(desc);
+                        break;
+                    case WeaponStatShowerPlugin.StatsPosition.First:
+                        headerBuilder.Insert(0, header);
+                        descBuilder.Insert(0, desc);
+                        // Shift description index up if it wasn't placed after stats page
+                        if (descriptionIndex < descBuilder.Count)
+                            descriptionIndex++;
+                        break;
+                    case WeaponStatShowerPlugin.StatsPosition.Combined:
+                        defaultHeader = header;
+                        defaultDesc = new LocaleText(desc.ToString() + '\n' + defaultDesc.ToString());
+                        break;
                 }
             }
 
+            descriptionIndex = Math.Min(descriptionIndex, descBuilder.Count);
             // Description index could exceed available count in some cases; default to first tab if so.
-            descBuilder.Insert(descriptionIndex <= descBuilder.Count ? descriptionIndex : 0, new(description));
-            headerBuilder.Insert(descriptionIndex <= descBuilder.Count ? descriptionIndex : 0, LocaleText.Empty);
+            descBuilder.Insert(descriptionIndex, defaultDesc);
+            headerBuilder.Insert(descriptionIndex, defaultHeader);
 
             _descriptions = descBuilder.ToArray();
             _headers = headerBuilder.ToArray();
 
             // Fill blank headers elements with the normal gear name
-            LocaleText defaultHeader = new(idRange.PublicGearName);
+            LocaleText normalHeader = new(idRange.PublicGearName);
             for (int i = 0; i < _headers.Length; i++)
                 if (_headers[i] == LocaleText.Empty)
-                    _headers[i] = defaultHeader;
+                    _headers[i] = normalHeader;
 
             _index = 0;
-            _gameObject.SetActive(true);
-            if (descriptionIndex != 0)
+            if (descriptionIndex != 0 || WeaponStatShowerPlugin.StatsLocation == WeaponStatShowerPlugin.StatsPosition.Combined)
             {
                 _infoBox.m_infoMainTitleText.SetText(_headers[0]);
                 _infoBox.m_infoDescriptionText.SetText(_descriptions[0]);
             }
+
+            // May happen if combined
+            if (_descriptions.Length == 1)
+            {
+                _gameObject.SetActive(false);
+                return;
+            }
+
+            _gameObject.SetActive(true);
             _text.SetText($"<< 1 >>");
         }
 

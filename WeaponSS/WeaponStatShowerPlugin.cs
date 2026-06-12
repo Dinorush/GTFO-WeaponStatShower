@@ -1,6 +1,7 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
+using GTFO.API.Utilities;
 using HarmonyLib;
 using WeaponStatShower.Dependencies;
 using WeaponStatShower.ExtraDescription;
@@ -30,12 +31,7 @@ namespace WeaponStatShower
             (_showStats.Value == ShowStatSetting.True && !DescriptionDataManager.Current.GlobalSettings.PreferHideStats);
         internal static string SleepersShown => _sleepersShown.Value.Trim().ToUpper();
         internal static LanguageEnum ConfigLanguage => _configLanguage.Value;
-        internal static bool StatsFirst => _statsFirst.Value;
-
-        public WeaponStatShowerPlugin()
-        {
-            Config.SaveOnConfigSet = false;
-        }
+        internal static StatsPosition StatsLocation => _statsPosition.Value;
 
         public override void Load()
         {
@@ -45,7 +41,6 @@ namespace WeaponStatShower
             DescriptionDataManager.Current.Init();
             RegisterPatch<DescriptionToggle>();
             BuildConfig(Config);
-            Config.Save();
         }
 
         public static void RegisterPatch<T>() where T : Patches.Patch, new()
@@ -85,7 +80,7 @@ namespace WeaponStatShower
         private static ConfigEntry<LanguageEnum> _configLanguage = null!;
         private static ConfigEntry<string> _sleepersShown = null!;
         private static ConfigEntry<ShowStatSetting> _showStats = null!;
-        private static ConfigEntry<bool> _statsFirst = null!;
+        private static ConfigEntry<StatsPosition> _statsPosition = null!;
 
         private static void BuildConfig(ConfigFile file)
         {
@@ -94,7 +89,11 @@ namespace WeaponStatShower
             _sleepersShown = file.Bind(section, "SleepersShown", "NONE", "Select which Sleepers are shown, seperated by a comma.\n" +
                 "Acceptable values: ALL, NONE, STRIKER, SHOOTER, SCOUT, BIG_STRIKER, BIG_SHOOTER, CHARGER, CHARGER_SCOUT");
             _showStats = file.Bind(section, "ShowStats", ShowStatSetting.True, "Add a description tab with auto-generated weapon stats.\nForce will always create a tab, even if the rundown developer disables it.");
-            _statsFirst = file.Bind(section, "StatsFirst", false, "Places the auto-generated weapon stats as the first tab.");
+            _statsPosition = file.Bind(section, "StatsPosition", StatsPosition.Last, "Which tab to place the auto-generated weapon stats.\nCombined will combine it with the normal description, similar to older versions.");
+
+            (var dir, var fileName) = (Path.GetDirectoryName(file.ConfigFilePath), Path.GetFileName(file.ConfigFilePath));
+            var liveEditListener = LiveEdit.CreateListener(dir, fileName, false);
+            liveEditListener.FileChanged += (_) => file.Reload();
         }
 
         enum ShowStatSetting
@@ -102,6 +101,13 @@ namespace WeaponStatShower
             False,
             True,
             Force
+        }
+
+        public enum StatsPosition
+        {
+            Last,
+            First,
+            Combined
         }
     }
 }
