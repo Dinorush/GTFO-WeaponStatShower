@@ -10,7 +10,7 @@ using WeaponStatShower.Utils.Language;
 
 namespace WeaponStatShower
 {
-    [BepInPlugin(GUID, ModName, "2.0.1")]
+    [BepInPlugin(GUID, ModName, "2.0.2")]
     [BepInProcess("GTFO.exe")]
     [BepInDependency(MTFOWrapper.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(PartialData.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
@@ -32,6 +32,7 @@ namespace WeaponStatShower
         internal static string SleepersShown => _sleepersShown.Value.Trim().ToUpper();
         internal static LanguageEnum ConfigLanguage => _configLanguage.Value;
         internal static StatsPosition StatsLocation => _statsPosition.Value;
+        internal static bool PreservePage => _preservePage.Value;
 
         public override void Load()
         {
@@ -81,6 +82,7 @@ namespace WeaponStatShower
         private static ConfigEntry<string> _sleepersShown = null!;
         private static ConfigEntry<ShowStatSetting> _showStats = null!;
         private static ConfigEntry<StatsPosition> _statsPosition = null!;
+        private static ConfigEntry<bool> _preservePage = null!;
 
         private static void BuildConfig(ConfigFile file)
         {
@@ -90,6 +92,7 @@ namespace WeaponStatShower
                 "Acceptable values: ALL, NONE, STRIKER, SHOOTER, SCOUT, BIG_STRIKER, BIG_SHOOTER, CHARGER, CHARGER_SCOUT");
             _showStats = file.Bind(section, "ShowStats", ShowStatSetting.True, "Add a description tab with auto-generated weapon stats.\nForce will always create a tab, even if the rundown developer disables it.");
             _statsPosition = file.Bind(section, "StatsPosition", StatsPosition.Last, "Which tab to place the auto-generated weapon stats.\nCombined will combine it with the normal description, similar to older versions.");
+            _preservePage = file.Bind(section, "PreservePage", true, "Keeps the current page number active when selecting different gear (if it exists).");
 
             (var dir, var fileName) = (Path.GetDirectoryName(file.ConfigFilePath), Path.GetFileName(file.ConfigFilePath));
             var liveEditListener = LiveEdit.CreateListener(dir, fileName, false);

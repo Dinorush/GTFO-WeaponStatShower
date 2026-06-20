@@ -34,7 +34,7 @@ namespace WeaponStatShower.Patches
 
         public static void CM_PlayerLobbyBar__OnWeaponSlotItemSelected__Postfix(CM_InventorySlotItem slotItem)
         {
-            if (_button == null) return;
+            if (_button == null || slotItem.m_gearID == null) return;
 
             _button.SetData(slotItem.m_gearID);
         }

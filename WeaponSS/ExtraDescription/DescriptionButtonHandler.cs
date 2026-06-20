@@ -75,7 +75,7 @@ namespace WeaponStatShower.ExtraDescription
 
         public void SetData(GearIDRange idRange)
         {
-            if (_lastRange == idRange) return;
+            if (_lastRange?.IsEqual(idRange) == true) return;
             _lastRange = idRange;
 
             var catID = idRange.GetCompID(eGearComponent.Category);
@@ -158,11 +158,14 @@ namespace WeaponStatShower.ExtraDescription
                 if (_headers[i] == LocaleText.Empty)
                     _headers[i] = normalHeader;
 
-            _index = 0;
-            if (descriptionIndex != 0 || WeaponStatShowerPlugin.StatsLocation == WeaponStatShowerPlugin.StatsPosition.Combined)
+            if (!WeaponStatShowerPlugin.PreservePage || _index >= _descriptions.Length)
+                _index = 0;
+
+            // The normal description is loaded by default, so only update if needed
+            if (descriptionIndex != _index || WeaponStatShowerPlugin.StatsLocation == WeaponStatShowerPlugin.StatsPosition.Combined)
             {
-                _infoBox.m_infoMainTitleText.SetText(_headers[0]);
-                _infoBox.m_infoDescriptionText.SetText(_descriptions[0]);
+                _infoBox.m_infoMainTitleText.SetText(_headers[_index]);
+                _infoBox.m_infoDescriptionText.SetText(_descriptions[_index]);
             }
 
             // May happen if combined
@@ -173,7 +176,7 @@ namespace WeaponStatShower.ExtraDescription
             }
 
             _gameObject.SetActive(true);
-            _text.SetText($"<< 1 >>");
+            _text.SetText($"<< {_index + 1} >>");
         }
 
         private void OnBtnPress(int _)
